@@ -17,7 +17,6 @@
         .form-container {
             width: 100vw;
             height: 100vh;
-            /* background-color: #7b2cbf; */
             background-image: url('/static/upgrade-file-upload.png');
             display: flex;
             justify-content: center;
@@ -75,9 +74,10 @@
             color: #BB0000;
             display: none;
         }
+
         @keyframes fadeIn {
-        0% {opacity: 0;}
-        100% {opacity: 1;}
+            0% {opacity: 0;}
+            100% {opacity: 1;}
         }
         .cannot-upload-message span, .upload-button-icon {
             padding-right: 10px;
@@ -138,32 +138,144 @@
             padding: 7.5px 50px;
             cursor: pointer;
         }
+        .convert-button {
+            font-family: 'Montserrat';
+            background-color: #4BB543;
+            color: #f7fff7;
+            display: flex;
+            align-items: center;
+            font-size: 18px;
+            border: none;
+            border-radius: 20px;
+            margin: 10px;
+            padding: 7.5px 50px;
+            cursor: pointer;
+        }
+
+        #download-button {
+            display: none;
+            background-color: #a7289d9e;
+            color: white; 
+            padding: 12px 24px; 
+            font-size: 16px; 
+            border: none; 
+            border-radius: 67px;
+            cursor: pointer; 
+            transition: background-color 0.3s ease, transform 0.3s ease; 
+            margin-top: 10px;
+            position: relative; 
+            left: 12rem; 
+            top: -1rem; 
+        }
+    
+        #download-button:hover {
+            background-color: #262188de; 
+            transform: scale(1.05); 
+        }
+    
+        #download-button:active {
+            background-color: #1e7e34; 
+            transform: scale(0.98); 
+        }
+        
+        .loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            display: none;
+        }
+    
+        .loader::after {
+            content: "";
+            border: 17px solid #007bff;
+            border-radius: 50rem;
+            border-top: 6px solid #00000000;
+            width: 213px;
+            height: 225px;
+            animation: spin 451ms linear infinite;
+        }
+    
+        .text {
+            position: absolute;
+            top: 27rem;
+            font-size: 2rem;
+            font-family: fantasy;
+        }
+    
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
     </style>
 </head>
 <body>
-    <form class="form-container" enctype='multipart/form-data'>
-        <div class="upload-files-container">
+    <div id="loader" class="loader">
+        <p class="text">Loading</p>
+    </div>
+
+    <form class="form-container" enctype="multipart/form-data">
+        <div class="upload-files-container" id="upload-files-container">
             <div class="drag-file-area">
                 <span class="material-icons-outlined upload-icon"> file_upload </span>
                 <h3 class="dynamic-message"> Drag & drop any file here </h3>
-                <label class="label"> or <span class="browse-files"> <input type="file" class="default-file-input" accept="video/*"/> <span class="browse-files-text">browse file</span> <span>from device</span> </span> </label>
+                <label class="label"> or 
+                    <span class="browse-files"> 
+                        <input type="file" class="default-file-input" accept="mp4/*"/> 
+                        <span class="browse-files-text">browse file</span> <span>from device</span> 
+                    </span> 
+                </label>
             </div>
-            <span class="cannot-upload-message"> <span class="material-icons-outlined">error</span> Please select a file first <span class="material-icons-outlined cancel-alert-button">cancel</span> </span>
+            <span class="cannot-upload-message"> 
+                <span class="material-icons-outlined">error</span> Please select a file first 
+                <span class="material-icons-outlined cancel-alert-button">cancel</span> 
+            </span>
             <div class="file-block">
-                <div class="file-info"> <span class="material-icons-outlined file-icon">description</span> <span class="file-name"> </span> | <span class="file-size">  </span> </div>
+                <div class="file-info"> 
+                    <span class="material-icons-outlined file-icon">description</span> 
+                    <span class="file-name"></span> | <span class="file-size"></span> 
+                </div>
                 <span class="material-icons remove-file-icon">delete</span>
-                <div class="progress-bar"> </div>
+                <div class="progress-bar"></div>
             </div>
-            <button type="button" class="upload-button"> Upload </button>
+            <button type="button" class="upload-button">Upload</button>
+            <button type="button" class="convert-button">Convert</button>
+        </div>
+
+        <!-- Video Player and Download Button -->
+        <div id="video-container" style="display: none;">
+            <video id="video-player" width="600" height="400" controls style="background-color: black; height: 37rem; width: 37rem;">
+                Your browser does not support the video tag.
+            </video>
+            <br>
+            <button id="download-button">Download Video</button>
         </div>
     </form>
 
     <script>
-        var isAdvancedUpload = function() {
-            var div = document.createElement('div');
-            return (('draggable' in div) || ('ondragstart' in div && 'ondrop' in div)) && 'FormData' in window && 'FileReader' in window;
-        }();
-    
+
+        window.onload = () => {
+            // Reset the form on page load
+            document.querySelector(".upload-icon").innerHTML = 'file_upload';
+            document.querySelector(".dynamic-message").innerHTML = 'Drag & drop any file here';
+            document.querySelector(".default-file-input").value = '';
+            document.querySelector(".file-name").innerHTML = '';
+            document.querySelector(".file-size").innerHTML = '';
+            document.querySelector(".progress-bar").style.width = '0';
+            document.querySelector(".upload-button").innerHTML = 'Upload';
+            document.querySelector(".upload-files-container").style.display = 'flex';
+            document.querySelector("#video-container").style.display = 'none';
+            document.querySelector("#download-button").style.display = 'none';
+        };
+
+        var loader = document.getElementById("loader");
         let draggableFileArea = document.querySelector(".drag-file-area");
         let browseFileText = document.querySelector(".browse-files");
         let uploadIcon = document.querySelector(".upload-icon");
@@ -177,7 +289,72 @@
         let progressBar = document.querySelector(".progress-bar");
         let removeFileButton = document.querySelector(".remove-file-icon");
         let uploadButton = document.querySelector(".upload-button");
+        let convertButton = document.querySelector(".convert-button");
         let fileFlag = 0;
+
+        convertButton.addEventListener("click", (e) => {
+            loader.style.display = "flex";
+            
+            if (fileInput.files.length > 0) {
+                let file = fileInput.files[0];
+                let formData = new FormData();
+                formData.append("video", file);
+        
+                fetch("/convert", {
+                    method: "POST",
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.video_url) {
+                        let videoPlayer = document.getElementById("video-player");
+                        let uploadContainer = document.getElementById("upload-files-container");
+                        let videoContainer = document.getElementById("video-container");
+                        let downloadButton = document.getElementById("download-button");
+        
+                        // Set the video source
+                        videoPlayer.src = data.video_url;
+                        videoPlayer.load();
+                        videoPlayer.style.display = "block";
+                        videoPlayer.play();
+        
+                        // Hide the upload container and show video container
+                        loader.style.display = 'none';
+                        uploadContainer.style.display = "none";
+                        videoContainer.style.display = "block";
+        
+                        // Show the download button
+                        downloadButton.style.display = "block";
+                        downloadButton.onclick = () => {
+                            const a = document.createElement('a');
+                            a.href = data.video_url;
+                            a.download = file.name;
+                            
+                            // Trigger the download
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);                     
+                            // Hide loader
+                            loader.style.display = "none";
+                        };
+
+                    } else {
+                        alert("Error processing video: " + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                });
+            } else {
+                cannotUploadMessage.style.display = "block";
+                loader.style.display = "none";
+            }
+        });
+        
+        var isAdvancedUpload = function() {
+            var div = document.createElement('div');
+            return (('draggable' in div) || ('ondragstart' in div && 'ondrop' in div)) && 'FormData' in window && 'FileReader' in window;
+        }();
     
         function isVideoFile(file) {
             return file && file.type.startsWith('video/');
@@ -191,7 +368,7 @@
             if (fileInput.files.length > 0 && isVideoFile(fileInput.files[0])) {
                 uploadIcon.innerHTML = 'check_circle';
                 dragDropText.innerHTML = 'File Dropped Successfully!';
-                document.querySelector(".label").innerHTML = `drag & drop or <span class="browse-files"> <input type="file" class="default-file-input" accept="video/*" style=""/> <span class="browse-files-text" style="top: 0;"> browse file</span></span>`;
+                document.querySelector(".label").innerHTML = `drag & drop or <span class="browse-files"> <input type="file" class="default-file-input" accept="mp4/*" style=""/> <span class="browse-files-text" style="top: 0;"> browse file</span></span>`;
                 uploadButton.innerHTML = `Upload`;
                 fileName.innerHTML = fileInput.files[0].name;
                 fileSize.innerHTML = (fileInput.files[0].size / 1024).toFixed(1) + " KB";
@@ -223,7 +400,7 @@
                 cannotUploadMessage.style.cssText = "display: flex; animation: fadeIn linear 1.5s;";
             }
         });
-    
+        
         cancelAlertButton.addEventListener("click", () => {
             cannotUploadMessage.style.cssText = "display: none;";
         });
@@ -250,7 +427,7 @@
                 if (files.length > 0 && isVideoFile(files[0])) {
                     uploadIcon.innerHTML = 'check_circle';
                     dragDropText.innerHTML = 'File Dropped Successfully!';
-                    document.querySelector(".label").innerHTML = `drag & drop or <span class="browse-files"> <input type="file" class="default-file-input" accept="video/*" style=""/> <span class="browse-files-text" style="top: -23px; left: -20px;"> browse file</span> </span>`;
+                    document.querySelector(".label").innerHTML = `drag & drop or <span class="browse-files"> <input type="file" class="default-file-input" accept="mp4/*" style=""/> <span class="browse-files-text" style="top: -23px; left: -20px;"> browse file</span> </span>`;
                     uploadButton.innerHTML = `Upload`;
     
                     fileInput.files = files;
@@ -271,7 +448,7 @@
             fileInput.value = '';
             uploadIcon.innerHTML = 'file_upload';
             dragDropText.innerHTML = 'Drag & drop any file here';
-            document.querySelector(".label").innerHTML = `or <span class="browse-files"> <input type="file" class="default-file-input" accept="video/*"/> <span class="browse-files-text">browse file</span> <span>from device</span> </span>`;
+            document.querySelector(".label").innerHTML = `or <span class="browse-files"> <input type="file" class="default-file-input" accept="mp4/*"/> <span class="browse-files-text">browse file</span> <span>from device</span> </span>`;
             uploadButton.innerHTML = `Upload`;
         });
     </script>
