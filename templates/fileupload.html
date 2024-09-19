@@ -12,7 +12,7 @@
             padding: 0;
             box-sizing: border-box;
             font-family: 'Montserrat', sans-serif;
-            
+            background-color: #262626;
         }
         .form-container {
             width: 100vw;
@@ -58,6 +58,7 @@
         }
         .browse-files span {
             position: relative;
+            text-wrap: nowrap;
             top: -25px;
         }
         .default-file-input {
@@ -152,7 +153,7 @@
             cursor: pointer;
         }
 
-        #download-button {
+        .download-button {
             display: none;
             background-color: #a7289d9e;
             color: white; 
@@ -168,12 +169,12 @@
             top: -1rem; 
         }
     
-        #download-button:hover {
+        .download-button:hover {
             background-color: #262188de; 
             transform: scale(1.05); 
         }
     
-        #download-button:active {
+        .download-button:active {
             background-color: #1e7e34; 
             transform: scale(0.98); 
         }
@@ -214,9 +215,103 @@
             100% { transform: rotate(360deg); }
         }
 
+        /* New Ring Loader CSS */
+        .ring-loader {
+            display: none;
+            position:absolute;
+            top:50%;
+            left:50%;
+            transform:translate(-50%,-50%);
+            width:250px;
+            height:250px;
+            background:transparent;
+            border:3px solid #3c3c3c;
+            border-radius:50%;
+            text-align:center;
+            line-height:150px;
+            font-family:sans-serif;
+            font-size:20px;
+            color:#fff000;
+            letter-spacing:4px;
+            text-transform:uppercase;
+            text-shadow:0 0 10px #fff000;
+            box-shadow:0 0 20px rgba(0,0,0,.5);
+        }
+
+        .ring-loader:before{
+            content:'';
+            position:absolute;
+            top:-3px;
+            left:-3px;
+            width:100%;
+            height:100%;
+            border:3px solid transparent;
+            border-top:3px solid #fff000;
+            border-right:3px solid #fff000;
+            border-radius:50%;
+            animation:animateC 2s linear infinite;
+        }
+
+        .ring-loader-span{
+            display:block;
+            position:absolute;
+            top:calc(50% - 2px);
+            left:50%;
+            width:50%;
+            height:4px;
+            background:transparent;
+            transform-origin:left;
+            animation:animate 2s linear infinite;
+        }
+
+        .ring-loader-span:before{
+            content:'';
+            position:absolute;
+            width:16px;
+            height:16px;
+            border-radius:50%;
+            background:#fff000;
+            top:-6px;
+            right:-8px;
+            box-shadow:0 0 20px #fff000;
+        }
+
+        .text_downloading{
+            position: absolute;
+            top: 2rem;
+            left: 2rem;
+            font-family:sans-serif;
+            font-size: 19px;
+        }
+        @keyframes animateC{
+            0%
+            {
+                transform:rotate(0deg);
+            }
+            100%
+            {
+                transform:rotate(360deg);
+            }
+        }
+        
+        @keyframes animate{
+            0%
+            {
+                transform:rotate(45deg);
+            }
+            100%
+            {
+                transform:rotate(405deg);
+            }
+        }
     </style>
 </head>
 <body>
+    <div id="ring-loader" class="ring-loader">
+        <p class="text_downloading">Downloading</p>
+        <span class="ring-loader-span"></span>
+      </div>
+
     <div id="loader" class="loader">
         <p class="text">Loading</p>
     </div>
@@ -251,11 +346,11 @@
 
         <!-- Video Player and Download Button -->
         <div id="video-container" style="display: none;">
-            <video id="video-player" width="600" height="400" controls style="background-color: black; height: 37rem; width: 37rem;">
+            <video id="video-player" width="600" height="400" style="height: 37rem; width: 37rem;">
                 Your browser does not support the video tag.
             </video>
             <br>
-            <button id="download-button">Download Video</button>
+            <button type="button" class="download-button">Download Video</button>
         </div>
     </form>
 
@@ -272,7 +367,7 @@
             document.querySelector(".upload-button").innerHTML = 'Upload';
             document.querySelector(".upload-files-container").style.display = 'flex';
             document.querySelector("#video-container").style.display = 'none';
-            document.querySelector("#download-button").style.display = 'none';
+            document.querySelector(".download-button").style.display = 'none';
         };
 
         var loader = document.getElementById("loader");
@@ -290,16 +385,22 @@
         let removeFileButton = document.querySelector(".remove-file-icon");
         let uploadButton = document.querySelector(".upload-button");
         let convertButton = document.querySelector(".convert-button");
+        let downloadButton = document.querySelector(".download-button");
+        let videoContainer = document.getElementById("video-container");
+        let videoPlayer = document.getElementById("video-player");
+        let uploadContainer = document.getElementById("upload-files-container");
+
+
         let fileFlag = 0;
 
         convertButton.addEventListener("click", (e) => {
             loader.style.display = "flex";
-            
+
             if (fileInput.files.length > 0) {
                 let file = fileInput.files[0];
                 let formData = new FormData();
                 formData.append("video", file);
-        
+
                 fetch("/convert", {
                     method: "POST",
                     body: formData
@@ -307,37 +408,83 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.video_url) {
-                        let videoPlayer = document.getElementById("video-player");
-                        let uploadContainer = document.getElementById("upload-files-container");
-                        let videoContainer = document.getElementById("video-container");
-                        let downloadButton = document.getElementById("download-button");
-        
+    
                         // Set the video source
                         videoPlayer.src = data.video_url;
+                        loader.style.display = "none";
                         videoPlayer.load();
                         videoPlayer.style.display = "block";
+                
+                        videoPlayer.autoplay = true;
+                        videoPlayer.loop = true; 
                         videoPlayer.play();
-        
+
                         // Hide the upload container and show video container
                         loader.style.display = 'none';
                         uploadContainer.style.display = "none";
                         videoContainer.style.display = "block";
-        
+
                         // Show the download button
                         downloadButton.style.display = "block";
-                        downloadButton.onclick = () => {
-                            const a = document.createElement('a');
-                            a.href = data.video_url;
-                            a.download = file.name;
-                            
-                            // Trigger the download
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);                     
-                            // Hide loader
-                            loader.style.display = "none";
-                        };
+                        downloadButton.addEventListener("click", (e) => {
+                            const ringLoader = document.getElementById("ring-loader");
+                            const form = document.querySelector(".form-container");
+                            const originalBackgroundImage = form.style.backgroundImage; // Store the original background image
 
+                            // Show the ring loader with a black background
+                            ringLoader.style.display = "flex"; 
+                            form.style.backgroundImage = "none"; // Remove the background image
+                            videoContainer.style.display = "none"; // Hide the video container
+
+                            // Pause the video
+                            if (videoPlayer && typeof videoPlayer.pause === 'function') {
+                                videoPlayer.pause(); // Stop the video playback
+                                videoPlayer.currentTime = 0; // Optional: Reset the video to the beginning
+                            }
+
+                            // Hide the download button
+                            downloadButton.style.display = "none";
+
+                            let downloadFormData = new FormData();
+                            let videoFile = fileInput.files[0]; // Get the original uploaded file
+
+                            if (!videoFile) {
+                                console.error("No file selected for download.");
+                                loader.style.display = "none"; // Hide the loader if no file is selected
+                                return;
+                            }
+
+                            downloadFormData.append("video", videoFile);
+
+                            fetch("/download", {
+                                method: "POST",
+                                body: downloadFormData
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                ringLoader.style.display = "none"; // Hide the loader after the request completes
+                                
+                                if (data.video_url) {
+                                    const a = document.createElement('a');
+                                    a.href = data.video_url;
+                                    a.download = videoFile.name;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+
+                                    // Reload the page after 5 seconds
+                                    setTimeout(() => {
+                                        window.location.reload();
+                                    }, 5000);
+                                } else {
+                                    console.error("Error:", data.error);
+                                }
+                            })
+                            .catch(error => {
+                                ringLoader.style.display = "none"; // Hide the loader on error
+                                console.error("Error during download:", error);
+                            });
+                        });
                     } else {
                         alert("Error processing video: " + data.error);
                     }
@@ -350,6 +497,7 @@
                 loader.style.display = "none";
             }
         });
+
         
         var isAdvancedUpload = function() {
             var div = document.createElement('div');
