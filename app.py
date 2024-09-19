@@ -4,9 +4,7 @@ import mediapipe as mp
 import numpy as np
 import subprocess
 import os
-import tempfile
-from werkzeug.utils import secure_filename  # Add this import
-
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
@@ -24,7 +22,18 @@ def uploaded_file(filename):
 mp_selfie_segmentation = mp.solutions.selfie_segmentation
 segmentation = mp_selfie_segmentation.SelfieSegmentation(model_selection=1)
 
-def process_video(video_path, output_path):
+def create_checkered_background(width, height, square_size=20):
+    background = np.zeros((height, width, 3), dtype=np.uint8)
+    for i in range(0, height, square_size):
+        for j in range(0, width, square_size):
+            color = (255, 255, 255) if (i // square_size + j // square_size) % 2 == 0 else (0, 0, 0)
+            background[i:i+square_size, j:j+square_size] = color
+    return background
+
+def create_black_background(width, height):
+    return np.zeros((height, width, 3), dtype=np.uint8)
+
+def process_video(video_path, output_path, background_type='checkered'):
     # Extract audio using ffmpeg
     audio_output_path = os.path.join(UPLOAD_FOLDER, "audio.aac")
     subprocess.run(['ffmpeg', '-y', '-i', video_path, '-vn', '-acodec', 'aac', audio_output_path])
@@ -48,8 +57,11 @@ def process_video(video_path, output_path):
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out = cv2.VideoWriter(temp_video_path, fourcc, fps, (width, height))
 
-    # Background color (black)
-    background = np.zeros((height, width, 3), dtype=np.uint8)
+    # Create the background based on the type
+    if background_type == 'checkered':
+        background = create_checkered_background(width, height)
+    else:
+        background = np.zeros((height, width, 3), dtype=np.uint8)  # Black background
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -71,11 +83,12 @@ def process_video(video_path, output_path):
         # Create the foreground (person) by masking the original frame
         fg = cv2.bitwise_and(frame, frame, mask=mask)
 
-        # Create the background (black)
-        bg_mask = cv2.bitwise_not(mask)
-        bg = cv2.bitwise_and(background, background, mask=bg_mask)
+        # Only show the background where the mask is 0 (background area)
+        # Use the inverse of the mask for the background
+        bg = background.copy()
+        bg[mask == 1] = frame[mask == 1]  # Replace the background where the person is
 
-        # Combine the foreground and the background
+        # Combine the foreground (person) and the background
         result_frame = cv2.add(fg, bg)
 
         # Write the result frame to the output video
@@ -91,14 +104,14 @@ def process_video(video_path, output_path):
         '-c:v', 'copy', '-c:a', 'aac', merged_output_path
     ])
 
-    # Now re-encode the merged video to ensure compatibility with browsers
-    final_output_path = os.path.join(UPLOAD_FOLDER, 'final_output_with_audio.mp4')
+    # Re-encode the merged video for compatibility
+    final_output_path = os.path.join(UPLOAD_FOLDER, 'download.mp4')
     subprocess.run([
         'ffmpeg', '-y', '-i', merged_output_path,
         '-c:v', 'libx264', '-c:a', 'aac', '-movflags', 'faststart', final_output_path
     ])
 
-    # Clean up the temporary files
+    # Clean up temporary files
     os.remove(audio_output_path)
     os.remove(temp_video_path)
     os.remove(merged_output_path)
@@ -110,7 +123,43 @@ def process_video(video_path, output_path):
 def index():
     return render_template('fileupload.html')
 
-# Flask route to handle the video conversion
+# Flask route to handle the download request
+@app.route('/download', methods=['POST'])
+def download():
+    if 'video' not in request.files:
+        print("No file part found in request.")
+        return jsonify({"error": "No file part"}), 400
+
+    file = request.files['video']
+    if file.filename == '':
+        print("No selected file.")
+        return jsonify({"error": "No selected file"}), 400
+
+    # Log the file name and size
+    print("Received file:", file.filename)
+    # Save the file temporarily
+    filename = secure_filename(file.filename)
+    input_video_path = os.path.join(UPLOAD_FOLDER, filename)
+    file.save(input_video_path)
+
+    # Output path for processed video
+    output_video_path = os.path.join(UPLOAD_FOLDER, filename.replace(".mp4", "_black_bg.mp4"))
+
+    try:
+        # Process the video to change background to black
+        processed_video_path = process_video(input_video_path, output_video_path, background_type='black')
+    except Exception as e:
+        return jsonify({"error": f"Error processing video: {e}"}), 500
+
+    # Clean up the original uploaded video
+    os.remove(input_video_path)
+
+    # Return the path to the processed video with black background
+    return jsonify({
+        "message": "Video processed with black background successfully",
+        "video_url": f"/uploads/{os.path.basename(processed_video_path)}"
+    })
+
 @app.route('/convert', methods=['POST'])
 def convert():
     if 'video' not in request.files:
@@ -120,27 +169,22 @@ def convert():
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
 
-    # Save the file to a temporary location in uploads folder
     filename = secure_filename(file.filename)
     input_video_path = os.path.join(UPLOAD_FOLDER, filename)
     file.save(input_video_path)
 
-    # Output path for processed video
     output_video_path = os.path.join(UPLOAD_FOLDER, filename.replace(".mp4", "_processed.mp4"))
 
     try:
-        # Process the video to remove the background
-        processed_video_path = process_video(input_video_path, output_video_path)
+        processed_video_path = process_video(input_video_path, output_video_path, background_type='checkered')
     except Exception as e:
         return jsonify({"error": f"Error processing video: {e}"}), 500
 
-    # Optionally clean up the original uploaded video
     os.remove(input_video_path)
 
-    # Return the success message with the path to the processed video
     return jsonify({
         "message": "Video processed successfully",
-        "video_url": f"/uploads/{os.path.basename(processed_video_path)}"  # Use the correct uploads path
+        "video_url": f"/uploads/{os.path.basename(processed_video_path)}"
     })
 
 if __name__ == '__main__':
