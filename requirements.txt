@@ -11,8 +11,7 @@ Flask==3.0.3
 flatbuffers==24.3.25
 fonttools==4.53.1
 itsdangerous==2.2.0
-jax==0.4.29
-jaxlib==0.4.33
+jaxlib==0.4.30
 Jinja2==3.1.4
 kiwisolver==1.4.7
 MarkupSafe==2.1.5
